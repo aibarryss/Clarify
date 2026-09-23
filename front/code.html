@@ -148,13 +148,6 @@
         </div>
       </div>
 
-      <!-- Grade Selector Tabs -->
-        <nav aria-label="Выбор класса" class="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200 shadow-inner">
-          <button data-grade="7" onclick="setGrade(7, this)" class="grade-tab px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white text-indigo-700 shadow-sm transition-all border border-slate-200/60">7 класс <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 inline-block ml-1"></span></button>
-          <button data-grade="8" onclick="setGrade(8, this)" class="grade-tab px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition-all">8 класс</button>
-          <button data-grade="9" onclick="setGrade(9, this)" class="grade-tab px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition-all">9 класс</button>
-        </nav>
-
       <!-- Right Header Actions -->
       <div class="flex items-center gap-3">
         <button class="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
@@ -243,7 +236,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-              <span class="">Ключевые темы 8 класса</span>
+              <span class="">Ключевые темы</span>
               <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">6 тем</span>
             </h2>
             <p class="text-xs text-slate-500 mt-0.5">Нажми на интересующий подвох, чтобы сразу открыть контекстный разбор</p>
@@ -573,8 +566,6 @@
   </div>
   <div>
     <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-medium">
-      <span id="chat-grade-crumb" class="">8 класс</span>
-      <span class="text-slate-300">•</span>
       <span id="chat-topic-crumb" class="font-semibold text-slate-700">Квадратичная функция</span>
       <span class="text-slate-300">•</span>
       <span class="text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-md">Смещение вершины</span>
@@ -747,7 +738,6 @@
           </form>
 
           <div class="flex items-center justify-between text-[11px] text-slate-400 px-2">
-            <span class="">Поддерживает формулы KaTeX и разбор заданий ОГЭ</span>
             <span class="flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="shield-check" aria-hidden="true" class="lucide lucide-shield-check w-3 h-3 text-emerald-500"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg> Без длинных лекций
             </span>
