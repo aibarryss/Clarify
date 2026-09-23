@@ -1,6 +1,8 @@
 """Формат данных, которые принимает и возвращает API."""
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class SessionCreate(BaseModel):
@@ -27,3 +29,31 @@ class SessionCreated(BaseModel):
     topic: str
     objective: str
     has_lesson_notes: bool
+
+
+class MessageCreate(BaseModel):
+    action: Literal["ask", "simplify", "example"]
+    text: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def check_text(self) -> "MessageCreate":
+        if self.action == "ask":
+            if not self.text or not self.text.strip():
+                raise ValueError("Для вопроса нужен текст")
+            self.text = self.text.strip()
+        elif self.text is not None:
+            if self.text.strip():
+                raise ValueError("Для этого действия не нужно поле text")
+            self.text = None
+        return self
+
+
+class Message(BaseModel):
+    id: str
+    role: Literal["user", "assistant"]
+    text: str
+    created_at: str
+
+
+class SessionDetail(SessionCreated):
+    messages: list[Message]
