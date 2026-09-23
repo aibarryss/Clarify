@@ -146,6 +146,13 @@ class HTTPContractTests(unittest.TestCase):
     def test_docs_and_cors_preflight(self):
         status, _, _ = self.request("GET", "/docs")
         self.assertEqual(status, 200)
+        status, headers, _ = self.request("GET", "/")
+        self.assertEqual(status, 307)
+        self.assertEqual(headers[b"location"], b"/app/code.html")
+        status, headers, page = self.request("GET", "/app/code.html")
+        self.assertEqual(status, 200)
+        self.assertIn(b"text/html", headers[b"content-type"])
+        self.assertIn(b"const API = '/api'", page)
         status, headers, _ = self.request("OPTIONS", "/api/sessions", headers={
             "Origin": "http://localhost:5500", "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "content-type",
@@ -173,10 +180,12 @@ class HTTPContractTests(unittest.TestCase):
         })
         self.assertEqual(status, 201)
         session_id = created["id"]
-        status, _, _ = self.request("POST", f"/api/sessions/{session_id}/messages", {
+        status, _, validation = self.request("POST", f"/api/sessions/{session_id}/messages", {
             "action": "ask", "text": " ",
         })
         self.assertEqual(status, 422)
+        self.assertIsInstance(validation["detail"], list)
+        self.assertTrue(all(item.get("msg") for item in validation["detail"]))
         status, _, error = self.request("POST", f"/api/sessions/{session_id}/messages", {
             "action": "ask", "text": "Почему 2(x+3) = 2x+6?",
         })
@@ -219,7 +228,9 @@ class HTTPContractTests(unittest.TestCase):
                     "action": "ask", "text": "Как раскрыть скобки?",
                 })
             self.assertEqual(status, 200)
+            self.assertEqual(reply["role"], "assistant")
             self.assertEqual(reply["text"], "Умножь оба слагаемых.")
+            self.assertTrue(reply["id"] and reply["created_at"])
             self.assertEqual(len(calls), 2)
             with patch.object(llm.request, "urlopen", side_effect=URLError("down")):
                 status, _, _ = self.request("POST", path + "/messages", {

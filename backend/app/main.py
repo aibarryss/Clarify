@@ -1,10 +1,13 @@
 """API Clarify: учебные сессии и диалог с AI."""
 
 import os
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import llm
 from .schemas import Message, MessageCreate, SessionCreate, SessionCreated, SessionDetail
@@ -82,3 +85,13 @@ def send_message(session_id: str, data: MessageCreate) -> Message:
     if not answer or not answer.strip():
         raise HTTPException(status_code=502, detail="AI не вернул ответ")
     return save_exchange(session_id, question, answer.strip())
+
+
+# HTML и API живут на одном локальном адресе; секреты и SQLite здесь не раздаются.
+FRONT_DIR = Path(__file__).resolve().parents[2] / "front"
+app.mount("/app", StaticFiles(directory=FRONT_DIR, html=True), name="frontend")
+
+
+@app.get("/", include_in_schema=False)
+def frontend() -> RedirectResponse:
+    return RedirectResponse(url="/app/code.html")

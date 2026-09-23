@@ -12,7 +12,7 @@
   <script defer="" src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
 
   <script>
-    tailwind.config = {
+    if (window.tailwind) tailwind.config = {
       theme: {
         extend: {
           colors: {
@@ -78,31 +78,23 @@
   }
 
   function promptEditGoal() {
-    const current = document.getElementById('chat-active-goal-text')?.textContent || '';
-    const newGoal = prompt('Введи новую цель на этот урок:', current);
-    if (newGoal && newGoal.trim()) {
-      applyGoalPreset(newGoal.trim());
-    }
+    alert('Чтобы изменить цель, вернитесь к выбору темы и создайте новую сессию.');
   }
 
-  function handleCustomTopicSubmit() {
+  async function handleCustomTopicSubmit() {
     const input = document.getElementById('custom-topic-input');
     const topic = input ? input.value.trim() : '';
     const targetTopic = topic || 'Свой пример / задача из тетради';
-    
-    goToTopic(targetTopic, 'Разбор персонального примера');
-    
-    if (topic) {
-      setTimeout(() => {
-        handleQuickPrompt(`Помоги разобрать задачу: «${topic}»`, `Отличная задача! Разберём пошагово «${topic}». Сначала определим тип выражения и выделим ограничения (ОДЗ), затем применим преобразования.`);
-      }, 400);
+    if (await goToTopic(targetTopic, 'Разбор персонального примера') && topic) {
+      // Автоматический первый вопрос — отдельный шаг: созданная сессия остаётся доступной при ошибке AI.
+      await handleQuickPrompt(`Помоги разобрать задачу: «${topic}»`, 'Урок создан, но первый ответ не получен: ');
     }
   }
 
   function promptCustomQuestion() {
     const question = prompt('Введи условие задачи или сложный вопрос:');
     if (question && question.trim()) {
-      handleQuickPrompt(question.trim(), `Разбираем твой вопрос: «${question.trim()}». Обрати внимание на ключевые скрытые подвохи в этой формуле!`);
+      handleQuickPrompt(question.trim());
     }
   }
 </script><body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
@@ -216,12 +208,16 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
       <div class="space-y-1.5">
         <label for="custom-topic-input" class="text-xs font-semibold text-slate-700">Тема урока</label>
-        <input id="custom-topic-input" type="text" placeholder="Введите тему урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
+        <input id="custom-topic-input" type="text" maxlength="120" placeholder="Введите тему урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
       </div>
       <div class="space-y-1.5">
         <label for="student-lesson-goal-input" class="text-xs font-semibold text-slate-700">Цели урока</label>
-        <input id="student-lesson-goal-input" type="text" placeholder="Сформулируйте цели урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
+        <input id="student-lesson-goal-input" type="text" maxlength="300" placeholder="Сформулируйте цели урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
       </div>
+    </div>
+    <div class="space-y-1.5">
+      <label for="lesson-notes-input" class="text-xs font-semibold text-slate-700">Заметки урока (необязательно)</label>
+      <textarea id="lesson-notes-input" maxlength="2000" rows="2" placeholder="Что объясняли на уроке?" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
     </div>
     <div class="flex items-center justify-end pt-2">
       <button type="button" onclick="handleCustomTopicSubmit()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5">
@@ -599,7 +595,7 @@
       <!-- 2. Chat History Area -->
       <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 space-y-6 min-h-[460px] flex flex-col justify-between">
         
-        <div id="chat-messages-container" class="space-y-6 overflow-y-auto max-h-[520px] pr-2 custom-scrollbar">
+        <div id="chat-messages-container" class="hidden space-y-6 overflow-y-auto max-h-[520px] pr-2 custom-scrollbar">
 
           <!-- Timestamp divider -->
           <div class="flex items-center justify-center">
@@ -690,7 +686,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check-circle-2" aria-hidden="true" class="lucide lucide-check-circle-2 w-4 h-4 text-emerald-600 shrink-0"><circle cx="12" cy="12" r="10"></circle><path d="m16 9-5.5 5.5L8 12"></path></svg>
                   <span class="">Проверим? Куда сместится вершина для <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mo stretchy="false">(</mo><mi>x</mi><mo>+</mo><mn>5</mn><msup><mo stretchy="false">)</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">y = (x + 5)^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.625em; vertical-align: -0.1944em;"></span><span class="mord mathnormal" style="margin-right: 0.0359em;">y</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 1.0641em; vertical-align: -0.25em;"></span><span class="mord">5</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.8141em;"><span class="" style="top: -3.063em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span>?</span>
                 </div>
-                <button onclick="handleQuickPrompt('Объясни на примере y = (x + 5)²', 'Для y = (x + 5)² чтобы скобка стала нулем, нужен x = -5. Поэтому смещение будет ВЛЕВО на 5 единиц!')" class="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg transition-colors shrink-0">
+                <button onclick="handleQuickPrompt('Объясни на примере y = (x + 5)²')" class="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg transition-colors shrink-0">
                   Проверить себя →
                 </button>
               </div>
@@ -711,20 +707,24 @@
             <span class="text-[11px] font-medium text-slate-400 whitespace-nowrap flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkle" aria-hidden="true" class="lucide lucide-sparkle w-3 h-3 text-indigo-500"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path></svg> Быстрые вопросы:
             </span>
-            <button onclick="handleQuickPrompt('В чём тут подвох?', 'Главная ловушка на контрольной — перепутать знак h и знаки ветвей при коэффициенте a &lt; 0. Ученики часто пишут координаты вершины как (-h; k) вместо (+h; k), теряя драгоценные первичные баллы.')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+            <button onclick="handleQuickPrompt('В чём тут подвох?')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
               ⚡ В чём тут подвох?
             </button>
-            <button onclick="handleQuickPrompt('Объясни на пальцах', 'Представь бегуна на старте. Если старт отложили на 3 секунды (t - 3), он пробежит ту же отметку позже по времени — график сдвигается вперед по оси времени (вправо). Математика работает точно так же!')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+            <button onclick="handleQuickPrompt('Объясни на пальцах')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
               👌 Объясни на пальцах
             </button>
-            <button onclick="handleQuickPrompt('Покажи ошибку на контрольной', 'Типичный пример из ОГЭ: Дан график со смещенной вершиной в точку (4; 2). В вариантах ответа дают y=(x+4)²+2 и y=(x-4)²+2. Ровно 48% школьников поспешно выбирают вариант с плюсом!')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+            <button onclick="handleQuickPrompt('Покажи ошибку на контрольной')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
               📝 Покажи ошибку на контрольной
             </button>
           </div>
 
+          <div class="flex gap-2 text-xs">
+            <button type="button" id="simplify-action" onclick="handleAction('simplify')" disabled class="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed">Объясни проще</button>
+            <button type="button" id="example-action" onclick="handleAction('example')" disabled class="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed">Дай пример</button>
+          </div>
           <!-- MESSAGE INPUT AREA (Rounded bar with Send) -->
           <form onsubmit="handleUserSubmit(event)" class="relative flex items-center">
-            <input id="user-input" type="text" placeholder="Спроси про тонкости этой темы..." class="w-full pl-5 pr-28 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-400">
+            <input id="user-input" type="text" maxlength="1000" placeholder="Спроси про тонкости этой темы..." class="w-full pl-5 pr-28 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-400">
             
             <div class="absolute right-2 flex items-center gap-1.5">
               <button type="button" title="Голосовой ввод" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
@@ -762,8 +762,8 @@
 
   <!-- SCRIPT FOR VIEW SWITCHING & INTERACTIVITY -->
   <script>
-    // Initialize icons
-    lucide.createIcons();
+    // Иконки необязательны: чат работает и без внешнего CDN.
+    if (window.lucide) lucide.createIcons();
 
     // View Switcher logic
     function switchView(viewId) {
@@ -802,68 +802,195 @@
     }
 
     // Navigate to topic and enter chat
-    function goToTopic(topicName, trickyPoint) {
-      const topicCrumb = document.getElementById('chat-topic-crumb');
-      if (topicCrumb) topicCrumb.textContent = topicName;
-      switchView('view-chat');
+    const API = '/api';
+    let sessionId = localStorage.getItem('clarifySessionId');
+    let creatingSession = null;
+    let sending = false;
+
+    async function api(path, options = {}) {
+      let response;
+      try {
+        response = await fetch(API + path, {
+          ...options,
+          headers: {
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+          }
+        });
+      } catch {
+        throw new Error('Нет связи с сервером. Запустите backend и откройте страницу через /app/code.html.');
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail = typeof data?.detail === 'string' ? data.detail
+          : Array.isArray(data?.detail) ? data.detail.map(item => item.msg).filter(Boolean).join('; ') : '';
+        const error = new Error(`Сервер вернул ${response.status}${detail ? `: ${detail}` : ''}`);
+        error.status = response.status;
+        throw error;
+      }
+      return response.json();
     }
 
-    // Quick prompt handler
-    function handleQuickPrompt(question, aiAnswer) {
+    let displayedMessages = [];
+    function showMessages(messages) {
+      displayedMessages = messages.slice();
+      const hasReply = displayedMessages.some(message => message.role === 'assistant');
+      document.getElementById('simplify-action').disabled = !hasReply || sending;
+      document.getElementById('example-action').disabled = !hasReply || sending;
       const container = document.getElementById('chat-messages-container');
-      
-      // User message element
-      const userHtml = `
-        <div class="flex justify-end items-end gap-2.5 animate-fadeIn">
-          <div class="max-w-md sm:max-w-lg space-y-1">
-            <div class="bg-indigo-600 text-white p-3.5 rounded-2xl rounded-br-sm shadow-md text-sm leading-relaxed">
-              <p>${question}</p>
-            </div>
-            <div class="text-[10px] text-slate-400 text-right pr-1">Только что</div>
-          </div>
-          <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
-            МК
-          </div>
-        </div>
-      `;
+      container.replaceChildren(); // Убираем старые сообщения макета.
+      container.classList.remove('hidden');
 
-      // AI response element
-      const aiHtml = `
-        <div class="flex justify-start items-start gap-3 animate-fadeIn">
-          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
-            <i data-lucide="sparkles" class="w-4 h-4 text-amber-200"></i>
-          </div>
-          <div class="max-w-2xl bg-slate-50 border border-slate-200 rounded-3xl rounded-tl-sm p-5 space-y-3 shadow-sm text-sm text-slate-800 leading-relaxed">
-            <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-              <div class="flex items-center gap-1.5 font-bold text-xs text-indigo-900">
-                <span>Clarify AI Tutor</span>
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              </div>
-              <span class="text-[11px] text-indigo-700 font-semibold bg-indigo-100/70 px-2 py-0.5 rounded-md">Экспресс-разбор</span>
-            </div>
-            <p>${aiAnswer}</p>
-          </div>
-        </div>
-      `;
-
-      container.insertAdjacentHTML('beforeend', userHtml);
-      setTimeout(() => {
-        container.insertAdjacentHTML('beforeend', aiHtml);
-        lucide.createIcons();
-        container.scrollTop = container.scrollHeight;
-      }, 350);
+      for (const message of displayedMessages) {
+        const bubble = document.createElement('div');
+        bubble.className = message.role === 'user'
+          ? 'ml-auto max-w-lg rounded-2xl bg-indigo-600 p-4 text-white'
+          : 'mr-auto max-w-2xl rounded-2xl border bg-slate-50 p-4 text-slate-800';
+        bubble.textContent = message.text; // Не вставляем ответ AI как HTML.
+        container.appendChild(bubble);
+      }
+      container.scrollTop = container.scrollHeight;
     }
 
-    // Submit input field
-    function handleUserSubmit(e) {
-      e.preventDefault();
+    async function goToTopic(topicName, trickyPoint) {
+      if (creatingSession) return false;
+      const objective =
+        document.getElementById('student-lesson-goal-input')?.value.trim()
+        || trickyPoint
+        || 'Разобраться в теме';
+      const lessonNotes = document.getElementById('lesson-notes-input')?.value.trim();
+      if (!topicName?.trim() || topicName.length > 120 || objective.length > 300) {
+        alert('Укажите тему до 120 символов и цель до 300 символов.');
+        return false;
+      }
+      creatingSession = api('/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ topic: topicName, objective, lesson_notes: lessonNotes || null })
+      });
+
+      try {
+        const session = await creatingSession;
+        sessionId = session.id;
+        localStorage.setItem('clarifySessionId', sessionId);
+        document.getElementById('chat-topic-crumb').textContent = session.topic;
+        document.getElementById('chat-active-goal-text').textContent = session.objective;
+        showMessages([]);
+        switchView('view-chat');
+        return true;
+      } catch (error) {
+        alert('Не удалось создать сессию: ' + error.message);
+        return false;
+      } finally {
+        creatingSession = null;
+      }
+    }
+
+    async function sendAction(payload, errorPrefix = 'Ответ не получен: ') {
+      if (sending) return false;
+      if (creatingSession) {
+        try {
+          await creatingSession;
+        } catch {
+          return false;
+        }
+      }
+      if (!sessionId) {
+        alert('Сначала выберите тему на первом экране.');
+        return false;
+      }
+      if (payload.action !== 'ask' && !displayedMessages.some(message => message.role === 'assistant')) {
+        alert('Сначала задайте вопрос.');
+        return false;
+      }
+      const requestedSessionId = sessionId;
+      const previousMessageCount = displayedMessages.length;
+      const userText = payload.action === 'ask' ? payload.text
+        : payload.action === 'simplify' ? 'Объясни предыдущий ответ проще'
+        : 'Приведи пример к предыдущему ответу';
+      sending = true;
+      showMessages(displayedMessages);
+      try {
+        const reply = await api(`/sessions/${encodeURIComponent(requestedSessionId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        if (reply?.role !== 'assistant' || typeof reply.text !== 'string'
+            || !reply.id || !reply.created_at) {
+          throw new Error('Неверный формат ответа сервера');
+        }
+        if (sessionId === requestedSessionId && displayedMessages.length === previousMessageCount) {
+          showMessages([...displayedMessages, { role: 'user', text: userText }, reply]);
+        }
+        return true;
+      } catch (error) {
+        let saved = false;
+        if (!error.status || error.status >= 500) {
+          try {
+            const session = await api(`/sessions/${encodeURIComponent(requestedSessionId)}`);
+            const recent = session.messages.slice(previousMessageCount);
+            saved = recent.some((message, index) =>
+              message.role === 'user' && message.text === userText && recent[index + 1]?.role === 'assistant');
+            if (sessionId === requestedSessionId) showMessages(session.messages);
+          } catch {
+            // При сетевой ошибке неизвестно, сохранился ли POST: не отправляем его повторно.
+          }
+        }
+        if (saved) return true;
+        alert(errorPrefix + error.message + (!error.status || error.status >= 500
+          ? ' Проверьте историю перед повторной отправкой.' : ''));
+        return false;
+      } finally {
+        sending = false;
+        showMessages(displayedMessages);
+      }
+    }
+
+    async function handleQuickPrompt(question, errorPrefix) {
+      if (!question?.trim()) return false;
+      if (question.trim().length > 1000) {
+        alert('Вопрос должен быть не длиннее 1000 символов.');
+        return false;
+      }
+      return sendAction({ action: 'ask', text: question.trim() }, errorPrefix);
+    }
+
+    function handleAction(action) {
+      return sendAction({ action });
+    }
+
+    async function handleUserSubmit(event) {
+      event.preventDefault();
       const input = document.getElementById('user-input');
-      const val = input.value.trim();
-      if (!val) return;
-
-      handleQuickPrompt(val, `Отличный вопрос про «${val}»! Чтобы не допускать здесь ошибок, рекомендую разложить формулу на базовые составляющие и подставить проверочные значения x = 0 и x = 1.`);
-      input.value = '';
+      const question = input.value.trim();
+      if (question && await handleQuickPrompt(question)) {
+        input.value = '';
+      }
     }
+
+    async function restoreSession() {
+      showMessages([]); // Не показываем заготовленные ответы из HTML.
+      if (!sessionId) return;
+      const requestedSessionId = sessionId;
+
+      try {
+        const session = await api(`/sessions/${encodeURIComponent(requestedSessionId)}`);
+        if (sessionId !== requestedSessionId) return;
+        document.getElementById('chat-topic-crumb').textContent = session.topic;
+        document.getElementById('chat-active-goal-text').textContent = session.objective;
+        showMessages(session.messages);
+        switchView('view-chat');
+      } catch (error) {
+        if (sessionId !== requestedSessionId) return;
+        if (error.status === 404) {
+          sessionId = null;
+          localStorage.removeItem('clarifySessionId');
+        } else {
+          alert('Не удалось восстановить сессию: ' + error.message);
+        }
+      }
+    }
+
+    restoreSession();
   </script>
 
 
