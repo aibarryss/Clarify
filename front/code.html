@@ -1,0 +1,1032 @@
+<!DOCTYPE html><html lang="ru" style=""><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clarify — AI-тьютор по сложным темам математики</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- KaTeX for crisp math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer="" src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
+  <script>
+    if (window.tailwind) tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            accent: {
+              50: '#faf5ff',
+              100: '#f3e8ff',
+              500: '#a855f7',
+              600: '#9333ea',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .math-font {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Smooth tab switching */
+    .view-transition {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" data-snapdom="injected-import"></head>
+<script class="">
+  function applyGoalPreset(goalText) {
+    const input = document.getElementById('student-lesson-goal-input');
+    if (input) input.value = goalText;
+    updateGoal(goalText);
+  }
+
+  function updateGoal(customVal) {
+    const input = document.getElementById('student-lesson-goal-input');
+    const goal = customVal || (input ? input.value.trim() : 'Подготовиться к контрольной по функциям и ОГЭ');
+    const chatGoal = document.getElementById('chat-active-goal-text');
+    if (chatGoal) chatGoal.textContent = goal;
+  }
+
+  function promptEditGoal() {
+    alert('Чтобы изменить цель, вернитесь к выбору темы и создайте новую сессию.');
+  }
+
+  async function handleCustomTopicSubmit() {
+    const input = document.getElementById('custom-topic-input');
+    const topic = input ? input.value.trim() : '';
+    const targetTopic = topic || 'Свой пример / задача из тетради';
+    if (await goToTopic(targetTopic, 'Разбор персонального примера') && topic) {
+      // Автоматический первый вопрос — отдельный шаг: созданная сессия остаётся доступной при ошибке AI.
+      await handleQuickPrompt(`Помоги разобрать задачу: «${topic}»`, 'Урок создан, но первый ответ не получен: ');
+    }
+  }
+
+  function promptCustomQuestion() {
+    const question = prompt('Введи условие задачи или сложный вопрос:');
+    if (question && question.trim()) {
+      handleQuickPrompt(question.trim());
+    }
+  }
+</script><body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- TOP DEV / PROTOTYPE PREVIEW CONTROLLER -->
+  <aside aria-label="Панель переключения демонстрационных экранов" class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur text-white px-4 py-2.5 border-b border-slate-800 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Режим просмотра прототипа:</span>
+      </div>
+      <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700/80 shadow-inner">
+        <button id="btn-view-1" onclick="switchView('view-dashboard')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="layout-grid" aria-hidden="true" class="lucide lucide-layout-grid w-3.5 h-3.5"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+          <span class=""> Выбор  тем</span>
+        </button>
+        <button id="btn-view-2" onclick="switchView('view-chat')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-square-code" aria-hidden="true" class="lucide lucide-message-square-code w-3.5 h-3.5"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"></path><path d="m10 8-3 3 3 3"></path><path d="m14 14 3-3-3-3"></path></svg>
+          <span class=""> AI-чат разбора</span>
+          <span class="ml-1 px-1.5 py-0.2 bg-indigo-500/30 text-indigo-300 text-[10px] rounded-full border border-indigo-400/30">Активен</span>
+        </button>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400">
+        <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 font-mono">7-9 класс</span>
+        <span class="">Математика &amp; Алгебра</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- APP HEADER (Consistent Branding) -->
+  <header class="bg-white/80 backdrop-blur border-b border-slate-200/80 sticky top-[45px] z-40 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('view-dashboard')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 ring-1 ring-black/5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkles" aria-hidden="true" class="lucide lucide-sparkles w-5 h-5 text-amber-200 animate-pulse"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-indigo-950 to-indigo-700 bg-clip-text text-transparent">Clarify</span>
+          <p class="text-[11px] text-slate-500 -mt-0.5 hidden sm:block">Без зубрёжки: разбираем подвохи и тонкости</p>
+        </div>
+      </div>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center gap-3">
+        <button class="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="flame" aria-hidden="true" class="lucide lucide-flame w-4 h-4 text-orange-500"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></svg>
+          <span class="">Серия: 5 дней</span>
+        </button>
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 border border-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700 shadow-sm" title="Ученик: Максим">
+          МК
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER WITH DYNAMIC VIEWS -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: TOPIC SELECTION DASHBOARD         -->
+    <!-- ========================================== -->
+    <section id="view-dashboard" class="space-y-8 view-transition">
+      
+      <!-- Hero / Motivation Banner -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white p-6 sm:p-8 lg:p-10 shadow-xl shadow-indigo-950/10 border border-indigo-800/40">
+        <!-- Abstract glowing circles -->
+        <div class="absolute -right-10 -top-24 w-80 h-80 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none"></div>
+        <div class="absolute right-48 -bottom-20 w-60 h-60 rounded-full bg-violet-500/15 blur-2xl pointer-events-none"></div>
+        
+        <div class="relative z-10 max-w-3xl space-y-3">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="help-circle" aria-hidden="true" class="lucide lucide-help-circle w-3.5 h-3.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+            <span class="">Фокус на типичных ловушках и ошибках ОГЭ</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
+            Какой материал вызвал затруднение на уроке?
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+            Выбери тему, в которой правила кажутся нелогичными или путаются знаки. Мы не пересказываем скучный учебник, а сразу бьём в корень непонимания на живых визуальных примерах.
+          </p>
+
+          <!-- Fast filter chips -->
+          <div class="pt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span class="text-slate-400">Часто путают:</span>
+            <button onclick="goToTopic('Квадратичная функция', '⚡ Почему (x - 3)² смещает вправо')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium border border-white/10 transition-colors flex items-center gap-1">
+              <span class="">(x - 3)² вправо?!</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-up-right" aria-hidden="true" class="lucide lucide-arrow-up-right w-3 h-3 text-indigo-300"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+            </button>
+            <button onclick="goToTopic('Квадратные уравнения', 'Отрицательный дискриминант')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium border border-white/10 transition-colors flex items-center gap-1">
+              <span class="">D &lt; 0 и график</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-up-right" aria-hidden="true" class="lucide lucide-arrow-up-right w-3 h-3 text-indigo-300"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+            </button>
+            <button onclick="goToTopic('Неравенства', 'Смена знака при делении на -1')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium border border-white/10 transition-colors flex items-center gap-1">
+              <span class="">Переворот знака</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-up-right" aria-hidden="true" class="lucide lucide-arrow-up-right w-3 h-3 text-indigo-300"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div><div class="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm">
+  <div class="max-w-3xl space-y-4">
+    <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+      <div>
+        <h3 class="text-base font-bold text-slate-900 tracking-tight">Настройка урока</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Укажите тему и цели занятия для персонального сопровождения AI-тьютором</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+      <div class="space-y-1.5">
+        <label for="custom-topic-input" class="text-xs font-semibold text-slate-700">Тема урока</label>
+        <input id="custom-topic-input" type="text" maxlength="120" placeholder="Введите тему урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
+      </div>
+      <div class="space-y-1.5">
+        <label for="student-lesson-goal-input" class="text-xs font-semibold text-slate-700">Цели урока</label>
+        <input id="student-lesson-goal-input" type="text" maxlength="300" placeholder="Сформулируйте цели урока..." class="w-full px-3.5 py-2.5 text-xs bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-800 placeholder:text-slate-400 font-medium">
+      </div>
+    </div>
+    <div class="space-y-1.5">
+      <label for="lesson-notes-input" class="text-xs font-semibold text-slate-700">Заметки урока (необязательно)</label>
+      <textarea id="lesson-notes-input" maxlength="2000" rows="2" placeholder="Что объясняли на уроке?" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+    </div>
+    <div class="flex items-center justify-end pt-2">
+      <button type="button" onclick="handleCustomTopicSubmit()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5">
+        <span class="">Сохранить</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+      <!-- Topics Grid Section -->
+      <div class="space-y-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <span class="">Ключевые темы</span>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">6 тем</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Нажми на интересующий подвох, чтобы сразу открыть контекстный разбор</p>
+          </div>
+
+          <div class="relative w-64 hidden sm:block">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="search" aria-hidden="true" class="lucide lucide-search w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+            <input type="text" placeholder="Поиск по понятиям..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+          </div>
+        </div>
+
+        <!-- 3-Column Card Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <!-- Card 1: Квадратичная функция (Primary Focus) -->
+          <article class="bg-white rounded-2xl border-2 border-indigo-500/30 p-5 shadow-sm hover:shadow-lg hover:border-indigo-500 transition-all flex flex-col justify-between group relative overflow-hidden">
+            <div class="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-indigo-50 rounded-full blur-xl pointer-events-none group-hover:bg-indigo-100 transition-colors"></div>
+            
+            <div class="space-y-3 relative z-10">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                  f(x)
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-600 rounded-full border border-rose-200 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="alert-triangle" aria-hidden="true" class="lucide lucide-alert-triangle w-3 h-3"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg> Топ ошибок
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  Квадратичная функция
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Графики парабол, смещения вдоль осей, влияние коэффициентов и координаты вершины без мучительного заучивания.
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Квадратичная функция', '⚡ Почему (x - 3)² смещает вправо')" class="text-left text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-200/70 transition-colors flex items-center gap-1 font-medium">
+                    <span class="">⚡ Почему (x - 3)² вправо</span>
+                  </button>
+                  <button onclick="goToTopic('Квадратичная функция', 'Знак коэффициента \'a\' и ветви')" class="text-left text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Знак «a» и ветви
+                  </button>
+                  <button onclick="goToTopic('Квадратичная функция', 'Вершина параболы: x₀ = -b/(2a)')" class="text-left text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Вершина параболы
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">12 микро-разборов</span>
+              <button onclick="goToTopic('Квадратичная функция', '⚡ Почему (x - 3)² смещает вправо')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 2: Квадратные уравнения -->
+          <article class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-sm">
+                  x²
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                  База для ОГЭ
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-violet-600 transition-colors">
+                  Квадратные уравнения
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Дискриминант, теорема Виета при отрицательных корнях и разложение квадратного трехчлена на множители.
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Квадратные уравнения', 'Потеря знака в -b ± √D')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Потеря знака в -b
+                  </button>
+                  <button onclick="goToTopic('Квадратные уравнения', 'Теорема Виета со знаком минус')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Виет со знаком минус
+                  </button>
+                  <button onclick="goToTopic('Квадратные уравнения', 'Неполные уравнения (x выносить!)')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Не делить на 'x'!
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">9 микро-разборов</span>
+              <button onclick="goToTopic('Квадратные уравнения', 'Теорема Виета со знаком минус')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 3: Системы уравнений -->
+          <article class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                  {xy}
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 rounded-full border border-amber-200">
+                  Алгебра &amp; Геометрия
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                  Системы уравнений
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Метод подстановки против метода сложения. Как не потерять вторую переменную при записи ответа (x, y).
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Системы уравнений', 'Забытый y после нахождения x')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Забытый y в ответе
+                  </button>
+                  <button onclick="goToTopic('Системы уравнений', 'Сложение с домножением на -1')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Умножение обеих частей
+                  </button>
+                  <button onclick="goToTopic('Системы уравнений', 'Графический смысл пересечения')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Смысл точки (x, y)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">8 микро-разборов</span>
+              <button onclick="goToTopic('Системы уравнений', 'Забытый y после нахождения x')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 4: Алгебраические дроби -->
+          <article class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-sm">
+                  a/b
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-full">
+                  ОДЗ
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">
+                  Алгебраические дроби и ОДЗ
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Сокращение дробей: почему нельзя сокращать слагаемые, а только множители, и когда знаменатель равен нулю.
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Алгебраические дроби', 'Сокращение слагаемых (главный грех)')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    «Сократить» слагаемое
+                  </button>
+                  <button onclick="goToTopic('Алгебраические дроби', 'Вынесение минуса: (b - a) = -(a - b)')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Вынос минуса (b - a)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">11 микро-разборов</span>
+              <button onclick="goToTopic('Алгебраические дроби', 'Сокращение слагаемых (главный грех)')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 5: Свойства квадратного корня -->
+          <article class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm">
+                  √x
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 rounded-full">
+                  Арифметика
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                  Квадратные корни и модуль
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Почему √(a²) = |a|, а не просто 'a'. Освобождение от иррациональности в знаменателе.
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Квадратные корни', '√(a²) = |a| (знак при a &lt; 0)')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    √(a²) = |a| (ловушка знака)
+                  </button>
+                  <button onclick="goToTopic('Квадратные корни', 'Корень из суммы ≠ сумме корней')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    √(a² + b²) ≠ a + b
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">7 микро-разборов</span>
+              <button onclick="goToTopic('Квадратные корни', '√(a²) = |a| (знак при a &lt; 0)')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 6: Неравенства -->
+          <article class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-sm">
+                  &lt;&gt;
+                </div>
+                <span class="px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-600 rounded-full">
+                  Внимание
+                </span>
+              </div>
+
+              <div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                  Неравенства и интервалы
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                  Круглые vs квадратные скобки на числовой прямой, метод интервалов и переворот знака неравенства.
+                </p>
+              </div>
+
+              <!-- Tricky Point Tags -->
+              <div class="space-y-1.5 pt-2">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zap" aria-hidden="true" class="lucide lucide-zap w-3 h-3 text-amber-500"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"></path></svg>
+                  <span class="">Сложные моменты:</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button onclick="goToTopic('Неравенства', 'Смена знака при делении на отрицательное')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Деление на минус
+                  </button>
+                  <button onclick="goToTopic('Неравенства', 'Выколотые точки и строгие знаки')" class="text-left text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-800 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">
+                    Выколотые точки
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">10 микро-разборов</span>
+              <button onclick="goToTopic('Неравенства', 'Смена знака при делении на отрицательное')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
+                <span class="">Разобрать тонкости</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-right" aria-hidden="true" class="lucide lucide-arrow-right w-3.5 h-3.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </button>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: INTERACTIVE AI CHAT               -->
+    <!-- ========================================== -->
+    <section id="view-chat" class="space-y-4 view-transition max-w-4xl mx-auto hidden">
+      
+      <!-- 1. Context Banner at top of chat -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex items-center gap-2.5">
+  <div class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="compass" aria-hidden="true" class="lucide lucide-compass w-4 h-4"><circle cx="12" cy="12" r="10"></circle><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path></svg>
+  </div>
+  <div>
+    <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-medium">
+      <span id="chat-topic-crumb" class="font-semibold text-slate-700">Квадратичная функция</span>
+      <span class="text-slate-300">•</span>
+      <span class="text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-md">Смещение вершины</span>
+    </div>
+    <!-- Active Lesson Goal Pill in Chat Header -->
+    <div class="flex items-center gap-2 mt-1">
+      <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[11px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        <span class="font-medium text-slate-500">Цель урока:</span>
+        <span id="chat-active-goal-text" class="font-semibold text-slate-800">Подготовиться к контрольной по функциям и ОГЭ</span>
+        <span class="text-slate-400 font-normal">• Шаг 1 из 3</span>
+      </div>
+      <button onclick="promptEditGoal()" class="text-[11px] text-indigo-600 hover:text-indigo-800 underline underline-offset-2 font-medium transition-colors">
+        Изменить цель
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="flex items-center gap-2 self-start sm:self-auto">
+  <button onclick="promptCustomQuestion()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200/80 transition-all">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles w-3.5 h-3.5 text-indigo-600"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+    <span class="">Своя задача</span>
+  </button>
+  <button onclick="switchView('view-dashboard')" class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl border border-slate-200/80 transition-all hover:text-slate-900">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-left" aria-hidden="true" class="lucide lucide-arrow-left w-3.5 h-3.5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+    <span class="">Сменить тему</span>
+  </button>
+</div></div>
+
+      <!-- 2. Chat History Area -->
+      <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 space-y-6 min-h-[460px] flex flex-col justify-between">
+        
+        <div id="chat-messages-container" class="hidden space-y-6 overflow-y-auto max-h-[520px] pr-2 custom-scrollbar">
+
+          <!-- Timestamp divider -->
+          <div class="flex items-center justify-center">
+            <span class="text-[11px] text-slate-400 font-medium bg-slate-100 px-3 py-1 rounded-full">
+              Сегодня • Разбор сложного парадокса
+            </span>
+          </div>
+
+          <!-- USER MESSAGE (Right-aligned, Indigo) -->
+          <div class="flex justify-end items-end gap-2.5">
+            <div class="max-w-md sm:max-w-lg space-y-1">
+              <div class="bg-indigo-600 text-white p-4 rounded-2xl rounded-br-sm shadow-md text-sm leading-relaxed">
+                <p class="">
+                  Я никак не могу понять: почему в формуле <code class="bg-indigo-700/80 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-100">y = (x - 3)²</code> график сдвигается <strong class="underline decoration-indigo-300 underline-offset-2">ВПРАВО</strong> на 3 единицы, хотя там стоит МИНУС 3? Логика же говорит, что минус — это влево!
+                </p>
+              </div>
+              <div class="text-[10px] text-slate-400 text-right pr-1">15:42 • Прочитано</div>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
+              МК
+            </div>
+          </div>
+
+          <!-- AI MESSAGE (Left-aligned, Clean white card + Badge + Formula + Callout) -->
+          <div class="flex justify-start items-start gap-3">
+            <!-- AI Avatar Badge -->
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkles" aria-hidden="true" class="lucide lucide-sparkles w-4 h-4 text-amber-200"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+            </div>
+
+            <!-- AI Message Bubble Card -->
+            <div class="max-w-2xl bg-slate-50 border border-slate-200 rounded-3xl rounded-tl-sm p-5 space-y-4 shadow-sm text-sm text-slate-800 leading-relaxed">
+              
+              <!-- Header info with tag -->
+              <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                <div class="flex items-center gap-1.5 font-bold text-xs text-indigo-900">
+                  <span class="">Clarify AI Tutor</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span class="text-[10px] text-slate-400 font-normal">Мгновенный ответ</span>
+                </div>
+                <span class="text-[11px] text-indigo-700 font-semibold bg-indigo-100/70 px-2 py-0.5 rounded-md">
+                  Визуальная алгебра
+                </span>
+              </div>
+
+              <!-- Main Explanation paragraph -->
+              <p class="">
+                Это самый частый вопрос в 8 классе, и твоя интуиция абсолютно нормальна! Путаница происходит из-за того, что мы смотрим на знак <em>операции</em>, а нужно смотреть на то, <strong>какой <span class="font-mono text-indigo-700">x</span> теперь обнуляет скобку</strong>.
+              </p>
+
+              <!-- HIGHLIGHTED CALLOUT BOX: "💡 Главный подвох" -->
+              <div class="bg-amber-50/80 border-l-4 border-amber-500 rounded-r-2xl p-4 space-y-1.5 shadow-sm">
+                <div class="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wide">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="lightbulb" aria-hidden="true" class="lucide lucide-lightbulb w-4 h-4 text-amber-600"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>
+                  <span class="">💡 Главный подвох:</span>
+                </div>
+                <p class="text-xs text-amber-900/90 leading-relaxed">
+                  У базовой параболы вершина находится там, где под квадратом получается <strong>ноль</strong> (при <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">x = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.6444em;"></span><span class="mord">0</span></span></span></span></span>). В выражении <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>x</mi><mo>−</mo><mn>3</mn><msup><mo stretchy="false">)</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">(x - 3)^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 1.0641em; vertical-align: -0.25em;"></span><span class="mord">3</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.8141em;"><span class="" style="top: -3.063em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span>, чтобы внутри скобки снова получить заветный ноль, переменная <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span></span> обязана быть <strong>положительной тройкой</strong>: <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mo>−</mo><mn>3</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">3 - 3 = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.7278em; vertical-align: -0.0833em;"></span><span class="mord">3</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 0.6444em;"></span><span class="mord">3</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.6444em;"></span><span class="mord">0</span></span></span></span></span>. Поэтому вершина физически переезжает в точку <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mo>+</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">x = +3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.7278em; vertical-align: -0.0833em;"></span><span class="mord">+</span><span class="mord">3</span></span></span></span></span> — то есть строго <strong>вправо</strong>!
+                </p>
+              </div>
+
+              <!-- BEAUTIFUL FORMATTED MATH EQUATION BLOCK -->
+              <div class="bg-slate-900 text-white rounded-2xl p-4 shadow-inner border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span class="">Каноническая форма вершины параболы:</span>
+                  <span class="text-indigo-400">Точка вершины: (h; k)</span>
+                </div>
+                
+                <div class="py-2 px-3 bg-slate-950/70 rounded-xl text-center font-mono text-base text-indigo-200 tracking-wide border border-slate-800">
+                  <span class="text-white font-bold text-lg">y = a(x - h)² + k</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                  <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                    <span class="text-indigo-300 font-semibold">Горизонталь: (x - h)</span>
+                    <p class="text-slate-400 mt-0.5">Минус перед <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi></mrow><annotation encoding="application/x-tex">h</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.6944em;"></span><span class="mord mathnormal">h</span></span></span></span></span> «зеркалит» направление: <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>x</mi><mo>−</mo><mn>3</mn><mo stretchy="false">)</mo><mo>⇒</mo><mo>+</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">(x - 3) \Rightarrow +3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mord">3</span><span class="mclose">)</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">⇒</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.7278em; vertical-align: -0.0833em;"></span><span class="mord">+</span><span class="mord">3</span></span></span></span></span> (вправо)</p>
+                  </div>
+                  <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                    <span class="text-emerald-300 font-semibold">Вертикаль: + k</span>
+                    <p class="text-slate-400 mt-0.5">Знак прямой: <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>+</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">+5</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.7278em; vertical-align: -0.0833em;"></span><span class="mord">+</span><span class="mord">5</span></span></span></span></span> тянет вверх, <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">-2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.7278em; vertical-align: -0.0833em;"></span><span class="mord">−</span><span class="mord">2</span></span></span></span></span> тянет вниз без инверсий</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Interactive micro-check question -->
+              <div class="bg-white rounded-xl p-3 border border-slate-200/90 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs text-slate-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check-circle-2" aria-hidden="true" class="lucide lucide-check-circle-2 w-4 h-4 text-emerald-600 shrink-0"><circle cx="12" cy="12" r="10"></circle><path d="m16 9-5.5 5.5L8 12"></path></svg>
+                  <span class="">Проверим? Куда сместится вершина для <span class=""><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mo stretchy="false">(</mo><mi>x</mi><mo>+</mo><mn>5</mn><msup><mo stretchy="false">)</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">y = (x + 5)^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.625em; vertical-align: -0.1944em;"></span><span class="mord mathnormal" style="margin-right: 0.0359em;">y</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 1.0641em; vertical-align: -0.25em;"></span><span class="mord">5</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.8141em;"><span class="" style="top: -3.063em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span>?</span>
+                </div>
+                <button onclick="handleQuickPrompt('Объясни на примере y = (x + 5)²')" class="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg transition-colors shrink-0">
+                  Проверить себя →
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 3. Quick Prompt Chips & 4. Message Input Area -->
+        <div class="space-y-3 pt-3 border-t border-slate-100">
+          
+          <!-- QUICK PROMPT CHIPS -->
+          <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs"><button onclick="promptCustomQuestion()" class="px-3 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-all font-semibold whitespace-nowrap text-xs flex items-center gap-1.5 shrink-0">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles w-3 h-3 text-indigo-600"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+  <span class="">Своя задача / тема...</span>
+</button>
+            <span class="text-[11px] font-medium text-slate-400 whitespace-nowrap flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkle" aria-hidden="true" class="lucide lucide-sparkle w-3 h-3 text-indigo-500"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path></svg> Быстрые вопросы:
+            </span>
+            <button onclick="handleQuickPrompt('В чём тут подвох?')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+              ⚡ В чём тут подвох?
+            </button>
+            <button onclick="handleQuickPrompt('Объясни на пальцах')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+              👌 Объясни на пальцах
+            </button>
+            <button onclick="handleQuickPrompt('Покажи ошибку на контрольной')" class="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200/80 transition-all font-medium whitespace-nowrap shadow-2xs">
+              📝 Покажи ошибку на контрольной
+            </button>
+          </div>
+
+          <div class="flex gap-2 text-xs">
+            <button type="button" id="simplify-action" onclick="handleAction('simplify')" disabled class="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed">Объясни проще</button>
+            <button type="button" id="example-action" onclick="handleAction('example')" disabled class="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed">Дай пример</button>
+          </div>
+          <!-- MESSAGE INPUT AREA (Rounded bar with Send) -->
+          <form onsubmit="handleUserSubmit(event)" class="relative flex items-center">
+            <input id="user-input" type="text" maxlength="1000" placeholder="Спроси про тонкости этой темы..." class="w-full pl-5 pr-28 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-400">
+            
+            <div class="absolute right-2 flex items-center gap-1.5">
+              <button type="button" title="Голосовой ввод" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mic" aria-hidden="true" class="lucide lucide-mic w-4 h-4"><path d="M12 19v3"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><rect x="9" y="2" width="6" height="13" rx="3"></rect></svg>
+              </button>
+              <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5">
+                <span class="">Отправить</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="send" aria-hidden="true" class="lucide lucide-send w-3.5 h-3.5"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-400 px-2">
+            <span class="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="shield-check" aria-hidden="true" class="lucide lucide-shield-check w-3 h-3 text-emerald-500"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg> Без длинных лекций
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 bg-white py-4 mt-8">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-800">Clarify</span> — персональный AI-помощник для 7, 8 и 9 классов
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT FOR VIEW SWITCHING & INTERACTIVITY -->
+  <script>
+    // Иконки необязательны: чат работает и без внешнего CDN.
+    if (window.lucide) lucide.createIcons();
+
+    // View Switcher logic
+    function switchView(viewId) {
+      const vDashboard = document.getElementById('view-dashboard');
+      const vChat = document.getElementById('view-chat');
+      const btn1 = document.getElementById('btn-view-1');
+      const btn2 = document.getElementById('btn-view-2');
+
+      if (viewId === 'view-dashboard') {
+        vDashboard.classList.remove('hidden');
+        vChat.classList.add('hidden');
+
+        btn1.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm";
+        btn2.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50";
+      } else {
+        vDashboard.classList.add('hidden');
+        vChat.classList.remove('hidden');
+
+        btn2.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm";
+        btn1.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50";
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Set Grade
+    function setGrade(grade, tabBtn) {
+      document.querySelectorAll('.grade-tab').forEach(b => {
+        b.className = "grade-tab px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+        b.innerHTML = b.getAttribute('data-grade') + ' класс';
+      });
+      tabBtn.className = "grade-tab px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white text-indigo-700 shadow-sm transition-all border border-slate-200/60";
+      tabBtn.innerHTML = tabBtn.getAttribute('data-grade') + ' класс <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 inline-block ml-1"></span>';
+      
+      const crumb = document.getElementById('chat-grade-crumb');
+      if (crumb) crumb.textContent = grade + ' класс';
+    }
+
+    // Navigate to topic and enter chat
+    const API = '/api';
+    let sessionId = localStorage.getItem('clarifySessionId');
+    let creatingSession = null;
+    let sending = false;
+
+    async function api(path, options = {}) {
+      let response;
+      try {
+        response = await fetch(API + path, {
+          ...options,
+          headers: {
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+          }
+        });
+      } catch {
+        throw new Error('Нет связи с сервером. Запустите backend и откройте страницу через /app/code.html.');
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail = typeof data?.detail === 'string' ? data.detail
+          : Array.isArray(data?.detail) ? data.detail.map(item => item.msg).filter(Boolean).join('; ') : '';
+        const error = new Error(`Сервер вернул ${response.status}${detail ? `: ${detail}` : ''}`);
+        error.status = response.status;
+        throw error;
+      }
+      return response.json();
+    }
+
+    let displayedMessages = [];
+    function renderAssistantMessage(bubble, text) {
+      // Только парные **...** превращаем в <strong>; HTML из ответа всегда остаётся текстом.
+      // Формулы оставляем цельными текстовыми узлами для KaTeX.
+      const mathSegments = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g);
+      for (const segment of mathSegments) {
+        if (/^(\$\$|\\\[|\\\()/.test(segment)) {
+          bubble.appendChild(document.createTextNode(segment));
+          continue;
+        }
+        const bold = /\*\*([^*\n]+)\*\*/g;
+        let start = 0;
+        for (const match of segment.matchAll(bold)) {
+          bubble.appendChild(document.createTextNode(segment.slice(start, match.index)));
+          const strong = document.createElement('strong');
+          strong.textContent = match[1];
+          bubble.appendChild(strong);
+          start = match.index + match[0].length;
+        }
+        bubble.appendChild(document.createTextNode(segment.slice(start)));
+      }
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(bubble, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
+    function showMessages(messages) {
+      displayedMessages = messages.slice();
+      const hasReply = displayedMessages.some(message => message.role === 'assistant');
+      document.getElementById('simplify-action').disabled = !hasReply || sending;
+      document.getElementById('example-action').disabled = !hasReply || sending;
+      const container = document.getElementById('chat-messages-container');
+      container.replaceChildren(); // Убираем старые сообщения макета.
+      container.classList.remove('hidden');
+
+      for (const message of displayedMessages) {
+        const bubble = document.createElement('div');
+        bubble.className = message.role === 'user'
+          ? 'ml-auto max-w-lg rounded-2xl bg-indigo-600 p-4 text-white whitespace-pre-wrap'
+          : 'mr-auto max-w-2xl rounded-2xl border bg-slate-50 p-4 text-slate-800 whitespace-pre-wrap';
+        if (message.role === 'assistant') renderAssistantMessage(bubble, message.text);
+        else bubble.textContent = message.text;
+        container.appendChild(bubble);
+      }
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function goToTopic(topicName, trickyPoint) {
+      if (creatingSession) return false;
+      const objective =
+        document.getElementById('student-lesson-goal-input')?.value.trim()
+        || trickyPoint
+        || 'Разобраться в теме';
+      const lessonNotes = document.getElementById('lesson-notes-input')?.value.trim();
+      if (!topicName?.trim() || topicName.length > 120 || objective.length > 300) {
+        alert('Укажите тему до 120 символов и цель до 300 символов.');
+        return false;
+      }
+      creatingSession = api('/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ topic: topicName, objective, lesson_notes: lessonNotes || null })
+      });
+
+      try {
+        const session = await creatingSession;
+        sessionId = session.id;
+        localStorage.setItem('clarifySessionId', sessionId);
+        document.getElementById('chat-topic-crumb').textContent = session.topic;
+        document.getElementById('chat-active-goal-text').textContent = session.objective;
+        showMessages([]);
+        switchView('view-chat');
+        return true;
+      } catch (error) {
+        alert('Не удалось создать сессию: ' + error.message);
+        return false;
+      } finally {
+        creatingSession = null;
+      }
+    }
+
+    async function sendAction(payload, errorPrefix = 'Ответ не получен: ') {
+      if (sending) return false;
+      if (creatingSession) {
+        try {
+          await creatingSession;
+        } catch {
+          return false;
+        }
+      }
+      if (!sessionId) {
+        alert('Сначала выберите тему на первом экране.');
+        return false;
+      }
+      if (payload.action !== 'ask' && !displayedMessages.some(message => message.role === 'assistant')) {
+        alert('Сначала задайте вопрос.');
+        return false;
+      }
+      const requestedSessionId = sessionId;
+      const previousMessageCount = displayedMessages.length;
+      const userText = payload.action === 'ask' ? payload.text
+        : payload.action === 'simplify' ? 'Объясни предыдущий ответ проще'
+        : 'Приведи пример к предыдущему ответу';
+      sending = true;
+      showMessages(displayedMessages);
+      try {
+        const reply = await api(`/sessions/${encodeURIComponent(requestedSessionId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        if (reply?.role !== 'assistant' || typeof reply.text !== 'string'
+            || !reply.id || !reply.created_at) {
+          throw new Error('Неверный формат ответа сервера');
+        }
+        if (sessionId === requestedSessionId && displayedMessages.length === previousMessageCount) {
+          showMessages([...displayedMessages, { role: 'user', text: userText }, reply]);
+        }
+        return true;
+      } catch (error) {
+        let saved = false;
+        if (!error.status || error.status >= 500) {
+          try {
+            const session = await api(`/sessions/${encodeURIComponent(requestedSessionId)}`);
+            const recent = session.messages.slice(previousMessageCount);
+            saved = recent.some((message, index) =>
+              message.role === 'user' && message.text === userText && recent[index + 1]?.role === 'assistant');
+            if (sessionId === requestedSessionId) showMessages(session.messages);
+          } catch {
+            // При сетевой ошибке неизвестно, сохранился ли POST: не отправляем его повторно.
+          }
+        }
+        if (saved) return true;
+        alert(errorPrefix + error.message + (!error.status || error.status >= 500
+          ? ' Проверьте историю перед повторной отправкой.' : ''));
+        return false;
+      } finally {
+        sending = false;
+        showMessages(displayedMessages);
+      }
+    }
+
+    async function handleQuickPrompt(question, errorPrefix) {
+      if (!question?.trim()) return false;
+      if (question.trim().length > 1000) {
+        alert('Вопрос должен быть не длиннее 1000 символов.');
+        return false;
+      }
+      return sendAction({ action: 'ask', text: question.trim() }, errorPrefix);
+    }
+
+    function handleAction(action) {
+      return sendAction({ action });
+    }
+
+    async function handleUserSubmit(event) {
+      event.preventDefault();
+      const input = document.getElementById('user-input');
+      const question = input.value.trim();
+      if (question && await handleQuickPrompt(question)) {
+        input.value = '';
+      }
+    }
+
+    async function restoreSession() {
+      showMessages([]); // Не показываем заготовленные ответы из HTML.
+      if (!sessionId) return;
+      const requestedSessionId = sessionId;
+
+      try {
+        const session = await api(`/sessions/${encodeURIComponent(requestedSessionId)}`);
+        if (sessionId !== requestedSessionId) return;
+        document.getElementById('chat-topic-crumb').textContent = session.topic;
+        document.getElementById('chat-active-goal-text').textContent = session.objective;
+        showMessages(session.messages);
+        switchView('view-chat');
+      } catch (error) {
+        if (sessionId !== requestedSessionId) return;
+        if (error.status === 404) {
+          sessionId = null;
+          localStorage.removeItem('clarifySessionId');
+        } else {
+          alert('Не удалось восстановить сессию: ' + error.message);
+        }
+      }
+    }
+
+    restoreSession();
+  </script>
+
+
+
+
+</body></html>
