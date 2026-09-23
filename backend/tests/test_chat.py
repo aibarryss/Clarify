@@ -190,6 +190,11 @@ class HTTPContractTests(unittest.TestCase):
         self.assertIn(b"renderAssistantMessage(bubble, message.text)", page)
         self.assertIn(b"renderMathInElement(bubble", page)
         self.assertIn(b"strong.textContent = match[1]", page)
+        self.assertIn("AI анализирует вопрос".encode("utf-8"), page)
+        self.assertIn(b"aria-busy=\"false\"", page)
+        for placeholder in ("Режим просмотра прототипа", "Серия: 5 дней", "Ученик: Максим",
+                            "Поиск по понятиям", "Голосовой ввод", "Шаг 1 из 3"):
+            self.assertNotIn(placeholder.encode("utf-8"), page)
         status, headers, _ = self.request("OPTIONS", "/api/sessions", headers={
             "Origin": "http://localhost:5500", "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "content-type",

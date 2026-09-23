@@ -72,7 +72,7 @@
 
   function updateGoal(customVal) {
     const input = document.getElementById('student-lesson-goal-input');
-    const goal = customVal || (input ? input.value.trim() : 'Подготовиться к контрольной по функциям и ОГЭ');
+    const goal = customVal || (input ? input.value.trim() : 'Подготовиться к контрольной по функциям');
     const chatGoal = document.getElementById('chat-active-goal-text');
     if (chatGoal) chatGoal.textContent = goal;
   }
@@ -99,33 +99,9 @@
   }
 </script><body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
 
-  <!-- TOP DEV / PROTOTYPE PREVIEW CONTROLLER -->
-  <aside aria-label="Панель переключения демонстрационных экранов" class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur text-white px-4 py-2.5 border-b border-slate-800 shadow-md">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Режим просмотра прототипа:</span>
-      </div>
-      <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700/80 shadow-inner">
-        <button id="btn-view-1" onclick="switchView('view-dashboard')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="layout-grid" aria-hidden="true" class="lucide lucide-layout-grid w-3.5 h-3.5"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
-          <span class=""> Выбор  тем</span>
-        </button>
-        <button id="btn-view-2" onclick="switchView('view-chat')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-square-code" aria-hidden="true" class="lucide lucide-message-square-code w-3.5 h-3.5"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"></path><path d="m10 8-3 3 3 3"></path><path d="m14 14 3-3-3-3"></path></svg>
-          <span class=""> AI-чат разбора</span>
-          <span class="ml-1 px-1.5 py-0.2 bg-indigo-500/30 text-indigo-300 text-[10px] rounded-full border border-indigo-400/30">Активен</span>
-        </button>
-      </div>
-      <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400">
-        <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 font-mono">7-9 класс</span>
-        <span class="">Математика &amp; Алгебра</span>
-      </div>
-    </div>
-  </aside>
 
   <!-- APP HEADER (Consistent Branding) -->
-  <header class="bg-white/80 backdrop-blur border-b border-slate-200/80 sticky top-[45px] z-40 transition-colors">
+  <header class="bg-white/80 backdrop-blur border-b border-slate-200/80 sticky top-0 z-40 transition-colors">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <!-- Brand Logo -->
@@ -140,15 +116,9 @@
         </div>
       </div>
 
-      <!-- Right Header Actions -->
-      <div class="flex items-center gap-3">
-        <button class="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="flame" aria-hidden="true" class="lucide lucide-flame w-4 h-4 text-orange-500"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></svg>
-          <span class="">Серия: 5 дней</span>
-        </button>
-        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 border border-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700 shadow-sm" title="Ученик: Максим">
-          МК
-        </div>
+      <div aria-hidden="true" class="flex items-center gap-2 text-xs font-medium text-slate-500">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        Учебный чат
       </div>
 
     </div>
@@ -171,7 +141,7 @@
         <div class="relative z-10 max-w-3xl space-y-3">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-medium">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="help-circle" aria-hidden="true" class="lucide lucide-help-circle w-3.5 h-3.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
-            <span class="">Фокус на типичных ловушках и ошибках ОГЭ</span>
+            <span class="">Фокус на типичных ловушках и ошибках экзамена</span>
           </div>
           <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
             Какой материал вызвал затруднение на уроке?
@@ -238,10 +208,6 @@
             <p class="text-xs text-slate-500 mt-0.5">Нажми на интересующий подвох, чтобы сразу открыть контекстный разбор</p>
           </div>
 
-          <div class="relative w-64 hidden sm:block">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="search" aria-hidden="true" class="lucide lucide-search w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
-            <input type="text" placeholder="Поиск по понятиям..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
-          </div>
         </div>
 
         <!-- 3-Column Card Grid -->
@@ -308,7 +274,7 @@
                   x²
                 </div>
                 <span class="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                  База для ОГЭ
+                  База для экзамена
                 </span>
               </div>
 
@@ -571,8 +537,7 @@
       <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[11px]">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
         <span class="font-medium text-slate-500">Цель урока:</span>
-        <span id="chat-active-goal-text" class="font-semibold text-slate-800">Подготовиться к контрольной по функциям и ОГЭ</span>
-        <span class="text-slate-400 font-normal">• Шаг 1 из 3</span>
+        <span id="chat-active-goal-text" class="font-semibold text-slate-800">Подготовиться к контрольной по функциям</span>
       </div>
       <button onclick="promptEditGoal()" class="text-[11px] text-indigo-600 hover:text-indigo-800 underline underline-offset-2 font-medium transition-colors">
         Изменить цель
@@ -595,7 +560,7 @@
       <!-- 2. Chat History Area -->
       <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 space-y-6 min-h-[460px] flex flex-col justify-between">
         
-        <div id="chat-messages-container" class="hidden space-y-6 overflow-y-auto max-h-[520px] pr-2 custom-scrollbar">
+        <div id="chat-messages-container" aria-live="polite" aria-busy="false" class="hidden space-y-6 overflow-y-auto max-h-[520px] pr-2 custom-scrollbar">
 
           <!-- Timestamp divider -->
           <div class="flex items-center justify-center">
@@ -627,25 +592,8 @@
             </div>
 
             <!-- AI Message Bubble Card -->
-            <div class="max-w-2xl bg-slate-50 border border-slate-200 rounded-3xl rounded-tl-sm p-5 space-y-4 shadow-sm text-sm text-slate-800 leading-relaxed">
+        <div class="max-w-2xl bg-slate-50 border border-slate-200 rounded-3xl rounded-tl-sm p-5 space-y-4 shadow-sm text-sm text-slate-800 leading-relaxed">
               
-              <!-- Header info with tag -->
-              <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                <div class="flex items-center gap-1.5 font-bold text-xs text-indigo-900">
-                  <span class="">Clarify AI Tutor</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span class="text-[10px] text-slate-400 font-normal">Мгновенный ответ</span>
-                </div>
-                <span class="text-[11px] text-indigo-700 font-semibold bg-indigo-100/70 px-2 py-0.5 rounded-md">
-                  Визуальная алгебра
-                </span>
-              </div>
-
-              <!-- Main Explanation paragraph -->
-              <p class="">
-                Это самый частый вопрос в 8 классе, и твоя интуиция абсолютно нормальна! Путаница происходит из-за того, что мы смотрим на знак <em>операции</em>, а нужно смотреть на то, <strong>какой <span class="font-mono text-indigo-700">x</span> теперь обнуляет скобку</strong>.
-              </p>
-
               <!-- HIGHLIGHTED CALLOUT BOX: "💡 Главный подвох" -->
               <div class="bg-amber-50/80 border-l-4 border-amber-500 rounded-r-2xl p-4 space-y-1.5 shadow-sm">
                 <div class="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wide">
@@ -727,9 +675,6 @@
             <input id="user-input" type="text" maxlength="1000" placeholder="Спроси про тонкости этой темы..." class="w-full pl-5 pr-28 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-400">
             
             <div class="absolute right-2 flex items-center gap-1.5">
-              <button type="button" title="Голосовой ввод" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mic" aria-hidden="true" class="lucide lucide-mic w-4 h-4"><path d="M12 19v3"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><rect x="9" y="2" width="6" height="13" rx="3"></rect></svg>
-              </button>
               <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5">
                 <span class="">Отправить</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="send" aria-hidden="true" class="lucide lucide-send w-3.5 h-3.5"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
@@ -769,21 +714,12 @@
     function switchView(viewId) {
       const vDashboard = document.getElementById('view-dashboard');
       const vChat = document.getElementById('view-chat');
-      const btn1 = document.getElementById('btn-view-1');
-      const btn2 = document.getElementById('btn-view-2');
-
       if (viewId === 'view-dashboard') {
         vDashboard.classList.remove('hidden');
         vChat.classList.add('hidden');
-
-        btn1.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm";
-        btn2.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50";
       } else {
         vDashboard.classList.add('hidden');
         vChat.classList.remove('hidden');
-
-        btn2.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm";
-        btn1.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700/50";
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -832,6 +768,7 @@
     }
 
     let displayedMessages = [];
+    let pendingUserMessage = null;
     function renderAssistantMessage(bubble, text) {
       // Только парные **...** превращаем в <strong>; HTML из ответа всегда остаётся текстом.
       // Формулы оставляем цельными текстовыми узлами для KaTeX.
@@ -866,10 +803,11 @@
 
     function showMessages(messages) {
       displayedMessages = messages.slice();
+      const container = document.getElementById('chat-messages-container');
+      container.setAttribute('aria-busy', sending ? 'true' : 'false');
       const hasReply = displayedMessages.some(message => message.role === 'assistant');
       document.getElementById('simplify-action').disabled = !hasReply || sending;
       document.getElementById('example-action').disabled = !hasReply || sending;
-      const container = document.getElementById('chat-messages-container');
       container.replaceChildren(); // Убираем старые сообщения макета.
       container.classList.remove('hidden');
 
@@ -881,6 +819,19 @@
         if (message.role === 'assistant') renderAssistantMessage(bubble, message.text);
         else bubble.textContent = message.text;
         container.appendChild(bubble);
+      }
+      if (pendingUserMessage) {
+        const bubble = document.createElement('div');
+        bubble.className = 'ml-auto max-w-lg rounded-2xl bg-indigo-600 p-4 text-white whitespace-pre-wrap';
+        bubble.textContent = pendingUserMessage;
+        container.appendChild(bubble);
+      }
+      if (sending) {
+        const status = document.createElement('div');
+        status.className = 'mr-auto flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800';
+        status.setAttribute('role', 'status');
+        status.innerHTML = '<span class="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" aria-hidden="true"></span><span>AI анализирует вопрос…</span>';
+        container.appendChild(status);
       }
       container.scrollTop = container.scrollHeight;
     }
@@ -907,6 +858,7 @@
         localStorage.setItem('clarifySessionId', sessionId);
         document.getElementById('chat-topic-crumb').textContent = session.topic;
         document.getElementById('chat-active-goal-text').textContent = session.objective;
+        pendingUserMessage = null;
         showMessages([]);
         switchView('view-chat');
         return true;
@@ -941,6 +893,7 @@
         : payload.action === 'simplify' ? 'Объясни предыдущий ответ проще'
         : 'Приведи пример к предыдущему ответу';
       sending = true;
+      pendingUserMessage = userText;
       showMessages(displayedMessages);
       try {
         const reply = await api(`/sessions/${encodeURIComponent(requestedSessionId)}/messages`, {
@@ -952,6 +905,7 @@
           throw new Error('Неверный формат ответа сервера');
         }
         if (sessionId === requestedSessionId && displayedMessages.length === previousMessageCount) {
+          pendingUserMessage = null;
           showMessages([...displayedMessages, { role: 'user', text: userText }, reply]);
         }
         return true;
@@ -963,17 +917,22 @@
             const recent = session.messages.slice(previousMessageCount);
             saved = recent.some((message, index) =>
               message.role === 'user' && message.text === userText && recent[index + 1]?.role === 'assistant');
-            if (sessionId === requestedSessionId) showMessages(session.messages);
+            if (sessionId === requestedSessionId) {
+              pendingUserMessage = null;
+              showMessages(session.messages);
+            }
           } catch {
             // При сетевой ошибке неизвестно, сохранился ли POST: не отправляем его повторно.
           }
         }
         if (saved) return true;
+        pendingUserMessage = null;
         alert(errorPrefix + error.message + (!error.status || error.status >= 500
           ? ' Проверьте историю перед повторной отправкой.' : ''));
         return false;
       } finally {
         sending = false;
+        pendingUserMessage = null;
         showMessages(displayedMessages);
       }
     }
