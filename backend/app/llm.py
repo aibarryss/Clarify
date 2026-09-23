@@ -17,6 +17,8 @@ DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
 TIMEOUT_SECONDS = 20
 MAX_RESPONSE_BYTES = 1_000_000
+MAX_OUTPUT_TOKENS = 3072
+RETRY_OUTPUT_TOKENS = 6144
 SYSTEM_PROMPT = (
     "Ты спокойный и внимательный помощник школьнику после урока. "
     "Отвечай на языке вопроса, кратко и понятно, с одной подсказкой или примером. "
@@ -33,6 +35,10 @@ class AIUnavailableError(Exception):
 
 class ProviderTransientError(Exception):
     """Временная ошибка: можно переключиться на резерв."""
+
+
+class ProviderOutputLimitError(ProviderTransientError):
+    """Провайдер остановил генерацию по лимиту, текст ответа неполный."""
 
 
 class ProviderConfigurationError(Exception):
@@ -96,7 +102,7 @@ def _post_json(url: str, payload: dict, headers: dict[str, str]) -> dict:
     return result
 
 
-def _gemini(key: str, messages: list[dict[str, str]]) -> str:
+def _gemini(key: str, messages: list[dict[str, str]], max_tokens: int = MAX_OUTPUT_TOKENS) -> str:
     model = _model(os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
     contents = [
         {"role": "model" if item["role"] == "assistant" else "user", "parts": [{"text": item["content"]}]}
@@ -107,7 +113,7 @@ def _gemini(key: str, messages: list[dict[str, str]]) -> str:
         {
             "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": contents,
-            "generationConfig": {"maxOutputTokens": 768},
+            "generationConfig": {"maxOutputTokens": max_tokens},
         },
         {"x-goog-api-key": key},
     )
@@ -117,8 +123,13 @@ def _gemini(key: str, messages: list[dict[str, str]]) -> str:
         raise ProviderConfigurationError("Gemini отклонил запрос")
     try:
         candidate = result["candidates"][0]
-        if candidate.get("finishReason") in {"SAFETY", "PROHIBITED_CONTENT", "SPII", "RECITATION"}:
+        finish_reason = candidate.get("finishReason")
+        if finish_reason in {"SAFETY", "PROHIBITED_CONTENT", "SPII", "RECITATION"}:
             raise ProviderConfigurationError("Gemini отклонил ответ")
+        if finish_reason == "MAX_TOKENS":
+            raise ProviderOutputLimitError("Gemini прервал ответ по лимиту токенов")
+        if finish_reason not in (None, "STOP"):
+            raise ProviderTransientError("Gemini не завершил ответ")
         parts = candidate["content"]["parts"]
         text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
     except (KeyError, IndexError, TypeError, AttributeError):
@@ -128,20 +139,28 @@ def _gemini(key: str, messages: list[dict[str, str]]) -> str:
     return text.strip()
 
 
-def _groq(key: str, messages: list[dict[str, str]]) -> str:
+def _groq(key: str, messages: list[dict[str, str]], max_tokens: int = MAX_OUTPUT_TOKENS) -> str:
     model = _model(os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL), allow_namespace=True)
     result = _post_json(
         GROQ_ENDPOINT,
         {
             "model": model,
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *messages],
-            "max_completion_tokens": 768,
+            "max_completion_tokens": max_tokens,
         },
         {"Authorization": "Bearer " + key},
     )
     try:
-        text = result["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
+        choice = result["choices"][0]
+        finish_reason = choice.get("finish_reason")
+        if finish_reason == "length":
+            raise ProviderOutputLimitError("Groq прервал ответ по лимиту токенов")
+        if finish_reason == "content_filter":
+            raise ProviderConfigurationError("Groq отклонил ответ")
+        if finish_reason not in (None, "stop"):
+            raise ProviderTransientError("Groq не завершил ответ")
+        text = choice["message"]["content"]
+    except (KeyError, IndexError, TypeError, AttributeError):
         raise ProviderTransientError("Groq не вернул текст") from None
     if not isinstance(text, str) or not text.strip():
         raise ProviderTransientError("Groq не вернул текст")
@@ -161,7 +180,11 @@ def generate_reply(
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
     if gemini_key:
         try:
-            return _gemini(gemini_key, messages)
+            try:
+                return _gemini(gemini_key, messages)
+            except ProviderOutputLimitError:
+                # Повторяем исходный запрос целиком с большим бюджетом; обрывок не сохраняем.
+                return _gemini(gemini_key, messages, RETRY_OUTPUT_TOKENS)
         except ProviderConfigurationError:
             # Не скрываем неверный ключ/модель переключением на Groq.
             raise AIUnavailableError("Настройки Gemini требуют проверки") from None
@@ -169,7 +192,10 @@ def generate_reply(
             pass
     if groq_key:
         try:
-            return _groq(groq_key, messages)
+            try:
+                return _groq(groq_key, messages)
+            except ProviderOutputLimitError:
+                return _groq(groq_key, messages, RETRY_OUTPUT_TOKENS)
         except (ProviderConfigurationError, ProviderTransientError):
             pass
     raise AIUnavailableError("AI-провайдеры недоступны")

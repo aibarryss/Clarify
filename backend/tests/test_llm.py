@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from fastapi import HTTPException
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
@@ -49,6 +50,7 @@ class LLMTests(unittest.TestCase):
         self.assertEqual(body["contents"][0]["role"], "user")
         self.assertIn("Algebra", body["contents"][0]["parts"][0]["text"])
         self.assertIn("Why?", body["contents"][0]["parts"][0]["text"])
+        self.assertEqual(body["generationConfig"]["maxOutputTokens"], llm.MAX_OUTPUT_TOKENS)
         self.assertNotIn("test-gemini", req.full_url)
 
     def test_gemini_rate_limit_uses_groq(self):
@@ -66,6 +68,7 @@ class LLMTests(unittest.TestCase):
         self.assertEqual(calls[1].get_header("Authorization"), "Bearer test-groq")
         body = json.loads(calls[1].data)
         self.assertEqual(body["model"], llm.DEFAULT_GROQ_MODEL)
+        self.assertEqual(body["max_completion_tokens"], llm.MAX_OUTPUT_TOKENS)
         self.assertEqual(body["messages"][0]["role"], "system")
         self.assertIn("Algebra", body["messages"][-1]["content"])
 
@@ -117,6 +120,90 @@ class LLMTests(unittest.TestCase):
         with patch.object(llm.request, "urlopen", side_effect=side_effect):
             self.assertEqual(llm.generate_reply(**self.input), "Groq hint")
         self.assertEqual(len(calls), 2)
+
+    def test_gemini_token_limit_retries_with_larger_budget(self):
+        requests = []
+
+        def side_effect(req, timeout):
+            requests.append(json.loads(req.data)["generationConfig"]["maxOutputTokens"])
+            if len(requests) == 1:
+                return FakeResponse({"candidates": [{"finishReason": "MAX_TOKENS",
+                                                    "content": {"parts": [{"text": "Unfinished"}]}}]})
+            return FakeResponse({"candidates": [{"finishReason": "STOP",
+                                                "content": {"parts": [{"text": "Complete reply."}]}}]})
+
+        with patch.object(llm.request, "urlopen", side_effect=side_effect):
+            self.assertEqual(llm.generate_reply(**self.input), "Complete reply.")
+        self.assertEqual(requests, [llm.MAX_OUTPUT_TOKENS, llm.RETRY_OUTPUT_TOKENS])
+
+    def test_gemini_token_limit_uses_complete_groq_reply(self):
+        calls = []
+
+        def side_effect(req, timeout):
+            calls.append(req.full_url)
+            if "generativelanguage" in req.full_url:
+                return FakeResponse({"candidates": [{"finishReason": "MAX_TOKENS",
+                                                    "content": {"parts": [{"text": "Unfinished "}]}}]})
+            return FakeResponse({"choices": [{"finish_reason": "stop",
+                                               "message": {"content": "Complete reply."}}]})
+
+        with patch.object(llm.request, "urlopen", side_effect=side_effect):
+            self.assertEqual(llm.generate_reply(**self.input), "Complete reply.")
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all("generativelanguage" in url for url in calls[:2]))
+        self.assertIn("groq.com", calls[2])
+
+    def test_groq_token_limit_retries_with_larger_budget(self):
+        requests = []
+
+        def side_effect(req, timeout):
+            requests.append(json.loads(req.data)["max_completion_tokens"])
+            if len(requests) == 1:
+                return FakeResponse({"choices": [{"finish_reason": "length",
+                                                   "message": {"content": "Unfinished"}}]})
+            return FakeResponse({"choices": [{"finish_reason": "stop",
+                                               "message": {"content": "Complete reply."}}]})
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": ""}):
+            with patch.object(llm.request, "urlopen", side_effect=side_effect):
+                self.assertEqual(llm.generate_reply(**self.input), "Complete reply.")
+        self.assertEqual(requests, [llm.MAX_OUTPUT_TOKENS, llm.RETRY_OUTPUT_TOKENS])
+
+    def test_groq_token_limit_is_not_saved_as_complete_answer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.dict(os.environ, {"CLARIFY_DB_PATH": str(Path(folder) / "chat.db"),
+                                       "GEMINI_API_KEY": "", "GROQ_API_KEY": "test-groq"}):
+                session = main.new_session(SessionCreate(topic="Algebra", objective="Learn"))
+                with patch.object(llm.request, "urlopen", return_value=FakeResponse(
+                    {"choices": [{"finish_reason": "length", "message": {"content": "Unfinished "}}]}
+                )):
+                    with self.assertRaises(HTTPException) as error:
+                        main.send_message(session.id, MessageCreate(action="ask", text="Why?"))
+                self.assertEqual(error.exception.status_code, 502)
+                self.assertEqual(main.read_session(session.id).messages, [])
+
+    def test_gemini_exhausted_retries_do_not_save_partial_answer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.dict(os.environ, {"CLARIFY_DB_PATH": str(Path(folder) / "chat.db"),
+                                       "GROQ_API_KEY": ""}):
+                session = main.new_session(SessionCreate(topic="Algebra", objective="Learn"))
+                with patch.object(llm.request, "urlopen", return_value=FakeResponse(
+                    {"candidates": [{"finishReason": "MAX_TOKENS",
+                                    "content": {"parts": [{"text": "Incomplete"}]}}]}
+                )) as send:
+                    with self.assertRaises(HTTPException) as error:
+                        main.send_message(session.id, MessageCreate(action="ask", text="Why?"))
+                self.assertEqual(error.exception.status_code, 502)
+                self.assertEqual(send.call_count, 2)
+                self.assertEqual(main.read_session(session.id).messages, [])
+
+    def test_gemini_unknown_finish_reason_does_not_return_partial_text(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": ""}):
+            with patch.object(llm.request, "urlopen", return_value=FakeResponse(
+                {"candidates": [{"finishReason": "OTHER", "content": {"parts": [{"text": "Partial"}]}}]}
+            )):
+                with self.assertRaises(llm.AIUnavailableError):
+                    llm.generate_reply(**self.input)
 
     def test_both_down_no_fake_answer(self):
         with patch.object(llm.request, "urlopen", side_effect=URLError("network error")):
