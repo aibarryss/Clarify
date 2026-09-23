@@ -28,7 +28,10 @@ class FakeResponse:
 
 class LLMTests(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {"GEMINI_API_KEY": "test-gemini", "GROQ_API_KEY": "test-groq"})
+        self.env = patch.dict(os.environ, {
+            "GEMINI_API_KEY": "test-gemini", "GROQ_API_KEY": "test-groq",
+            "GEMINI_MODEL": llm.DEFAULT_GEMINI_MODEL, "GROQ_MODEL": llm.DEFAULT_GROQ_MODEL,
+        })
         self.env.start()
         self.addCleanup(self.env.stop)
         self.input = dict(topic="Algebra", objective="Solve", lesson_notes=None, history=[], question="Why?")
@@ -40,8 +43,9 @@ class LLMTests(unittest.TestCase):
             self.assertEqual(llm.generate_reply(**self.input), "Hint")
         req = send.call_args.args[0]
         body = json.loads(req.data)
-        self.assertIn("gemini-2.5-flash", req.full_url)
+        self.assertIn(llm.DEFAULT_GEMINI_MODEL, req.full_url)
         self.assertEqual(req.get_header("X-goog-api-key"), "test-gemini")
+        self.assertEqual(req.get_header("User-agent"), "Clarify-local/1.0")
         self.assertEqual(body["contents"][0]["role"], "user")
         self.assertIn("Algebra", body["contents"][0]["parts"][0]["text"])
         self.assertIn("Why?", body["contents"][0]["parts"][0]["text"])
@@ -61,6 +65,7 @@ class LLMTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[1].get_header("Authorization"), "Bearer test-groq")
         body = json.loads(calls[1].data)
+        self.assertEqual(body["model"], llm.DEFAULT_GROQ_MODEL)
         self.assertEqual(body["messages"][0]["role"], "system")
         self.assertIn("Algebra", body["messages"][-1]["content"])
 
@@ -76,6 +81,15 @@ class LLMTests(unittest.TestCase):
                 llm.generate_reply(**self.input)
         self.assertEqual(len(reqs), 1)
         self.assertNotIn("test-gemini", str(error.exception))
+
+    def test_gemini_model_not_found_does_not_use_groq(self):
+        def not_found(req, timeout):
+            raise HTTPError(req.full_url, 404, "Model unavailable", {}, None)
+
+        with patch.object(llm.request, "urlopen", side_effect=not_found) as send:
+            with self.assertRaises(llm.AIUnavailableError):
+                llm.generate_reply(**self.input)
+        self.assertEqual(send.call_count, 1)
 
     def test_gemini_safety_refusal_does_not_use_groq(self):
         blocked = {"promptFeedback": {"blockReason": "SAFETY"}}
@@ -116,6 +130,14 @@ class LLMTests(unittest.TestCase):
             )) as send:
                 self.assertEqual(llm.generate_reply(**self.input), "Groq response")
             self.assertIn("groq.com", send.call_args.args[0].full_url)
+
+    def test_groq_namespaced_model_is_allowed_but_invalid_names_are_rejected(self):
+        self.assertEqual(llm._model("openai/gpt-oss-20b", allow_namespace=True), "openai/gpt-oss-20b")
+        for name in ("openai//gpt-oss-20b", "../secret", "openai/gpt-oss-20b?x=1"):
+            with self.assertRaises(llm.ProviderConfigurationError):
+                llm._model(name, allow_namespace=True)
+        with self.assertRaises(llm.ProviderConfigurationError):
+            llm._model("openai/gpt-oss-20b")
 
     def test_missing_keys_fails_without_network(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GROQ_API_KEY": ""}):

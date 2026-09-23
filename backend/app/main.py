@@ -8,10 +8,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
 
 from . import llm
 from .schemas import Message, MessageCreate, SessionCreate, SessionCreated, SessionDetail
 from .storage import create_session, get_lesson_notes, get_session, save_exchange
+
+# Загружаем локальные настройки независимо от текущей рабочей папки.
+# Значения из .env имеют приоритет над переменными, унаследованными процессом.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 app = FastAPI(title="Clarify API")
 

@@ -13,8 +13,8 @@ from .schemas import Message
 
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/"
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
 TIMEOUT_SECONDS = 20
 MAX_RESPONSE_BYTES = 1_000_000
 SYSTEM_PROMPT = (
@@ -39,8 +39,10 @@ class ProviderConfigurationError(Exception):
     """Ошибка конфигурации или отказ провайдера: не переключать Gemini на Groq."""
 
 
-def _model(name: str) -> str:
-    if not re.fullmatch(r"[a-zA-Z0-9._-]+", name):
+def _model(name: str, *, allow_namespace: bool = False) -> str:
+    segment = r"[a-zA-Z0-9][a-zA-Z0-9._-]*"
+    pattern = segment + (r"(?:/" + segment + r")?" if allow_namespace else "")
+    if not re.fullmatch(pattern, name):
         raise ProviderConfigurationError("Недопустимое имя модели")
     return name
 
@@ -71,7 +73,7 @@ def _conversation(
 def _post_json(url: str, payload: dict, headers: dict[str, str]) -> dict:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(
-        url, data=data, headers={"Content-Type": "application/json", **headers}, method="POST"
+        url, data=data, headers={"Content-Type": "application/json", "User-Agent": "Clarify-local/1.0", **headers}, method="POST"
     )
     try:
         with request.urlopen(req, timeout=TIMEOUT_SECONDS) as response:
@@ -127,7 +129,7 @@ def _gemini(key: str, messages: list[dict[str, str]]) -> str:
 
 
 def _groq(key: str, messages: list[dict[str, str]]) -> str:
-    model = _model(os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL))
+    model = _model(os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL), allow_namespace=True)
     result = _post_json(
         GROQ_ENDPOINT,
         {

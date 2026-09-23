@@ -832,6 +832,38 @@
     }
 
     let displayedMessages = [];
+    function renderAssistantMessage(bubble, text) {
+      // Только парные **...** превращаем в <strong>; HTML из ответа всегда остаётся текстом.
+      // Формулы оставляем цельными текстовыми узлами для KaTeX.
+      const mathSegments = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g);
+      for (const segment of mathSegments) {
+        if (/^(\$\$|\\\[|\\\()/.test(segment)) {
+          bubble.appendChild(document.createTextNode(segment));
+          continue;
+        }
+        const bold = /\*\*([^*\n]+)\*\*/g;
+        let start = 0;
+        for (const match of segment.matchAll(bold)) {
+          bubble.appendChild(document.createTextNode(segment.slice(start, match.index)));
+          const strong = document.createElement('strong');
+          strong.textContent = match[1];
+          bubble.appendChild(strong);
+          start = match.index + match[0].length;
+        }
+        bubble.appendChild(document.createTextNode(segment.slice(start)));
+      }
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(bubble, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
     function showMessages(messages) {
       displayedMessages = messages.slice();
       const hasReply = displayedMessages.some(message => message.role === 'assistant');
@@ -844,9 +876,10 @@
       for (const message of displayedMessages) {
         const bubble = document.createElement('div');
         bubble.className = message.role === 'user'
-          ? 'ml-auto max-w-lg rounded-2xl bg-indigo-600 p-4 text-white'
-          : 'mr-auto max-w-2xl rounded-2xl border bg-slate-50 p-4 text-slate-800';
-        bubble.textContent = message.text; // Не вставляем ответ AI как HTML.
+          ? 'ml-auto max-w-lg rounded-2xl bg-indigo-600 p-4 text-white whitespace-pre-wrap'
+          : 'mr-auto max-w-2xl rounded-2xl border bg-slate-50 p-4 text-slate-800 whitespace-pre-wrap';
+        if (message.role === 'assistant') renderAssistantMessage(bubble, message.text);
+        else bubble.textContent = message.text;
         container.appendChild(bubble);
       }
       container.scrollTop = container.scrollHeight;

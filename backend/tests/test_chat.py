@@ -10,12 +10,40 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
+from dotenv import load_dotenv
 from fastapi import HTTPException
 from pydantic import ValidationError
 
 from backend.app import llm, main
 from backend.app.llm import AIUnavailableError
 from backend.app.schemas import MessageCreate, SessionCreate
+
+
+class DotEnvTests(unittest.TestCase):
+    """Проверка загрузки ключей без доступа к настоящему локальному .env."""
+
+    def test_project_env_is_loaded_on_app_import_and_overrides_inherited_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env_path = Path(folder) / ".env"
+            env_path.write_text("GEMINI_API_KEY=from-file\nGROQ_API_KEY=from-file\n", encoding="utf-8")
+            original_env = os.environ.copy()
+            try:
+                os.environ.pop("GEMINI_API_KEY", None)
+                os.environ["GROQ_API_KEY"] = "from-process"
+                def load_fixture(path, override):
+                    self.assertEqual(path, Path(main.__file__).resolve().parents[2] / ".env")
+                    return load_dotenv(env_path, override=override)
+
+                with patch("dotenv.load_dotenv", side_effect=load_fixture) as loader:
+                    importlib.reload(main)
+                    loader.assert_called_once_with(Path(main.__file__).resolve().parents[2] / ".env", override=True)
+                self.assertEqual(os.environ["GEMINI_API_KEY"], "from-file")
+                self.assertEqual(os.environ["GROQ_API_KEY"], "from-file")
+            finally:
+                os.environ.clear()
+                os.environ.update(original_env)
+                with patch("dotenv.load_dotenv", return_value=False):
+                    importlib.reload(main)
 
 
 class ChatTests(unittest.TestCase):
@@ -104,8 +132,14 @@ class HTTPContractTests(unittest.TestCase):
         })
         self.env.start()
         self.addCleanup(self.env.stop)
-        importlib.reload(main)
-        self.addCleanup(importlib.reload, main)
+        with patch("dotenv.load_dotenv", return_value=False):
+            importlib.reload(main)
+        self.addCleanup(self.restore_main_without_dotenv)
+
+    @staticmethod
+    def restore_main_without_dotenv():
+        with patch("dotenv.load_dotenv", return_value=False):
+            importlib.reload(main)
 
     def request(self, method, path, payload=None, headers=None):
         body = json.dumps(payload).encode("utf-8") if payload is not None else b""
@@ -153,6 +187,9 @@ class HTTPContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"text/html", headers[b"content-type"])
         self.assertIn(b"const API = '/api'", page)
+        self.assertIn(b"renderAssistantMessage(bubble, message.text)", page)
+        self.assertIn(b"renderMathInElement(bubble", page)
+        self.assertIn(b"strong.textContent = match[1]", page)
         status, headers, _ = self.request("OPTIONS", "/api/sessions", headers={
             "Origin": "http://localhost:5500", "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "content-type",
@@ -166,13 +203,14 @@ class HTTPContractTests(unittest.TestCase):
         self.assertNotIn(b"access-control-allow-origin", headers)
 
     def test_invalid_cors_origin_is_rejected(self):
-        with patch.dict(os.environ, {"CLARIFY_CORS_ORIGINS": "*"}):
-            with self.assertRaises(ValueError):
-                importlib.reload(main)
-        with patch.dict(os.environ, {"CLARIFY_CORS_ORIGINS": "file:///tmp/page.html"}):
-            with self.assertRaises(ValueError):
-                importlib.reload(main)
-        importlib.reload(main)
+        with patch("dotenv.load_dotenv", return_value=False):
+            with patch.dict(os.environ, {"CLARIFY_CORS_ORIGINS": "*"}):
+                with self.assertRaises(ValueError):
+                    importlib.reload(main)
+            with patch.dict(os.environ, {"CLARIFY_CORS_ORIGINS": "file:///tmp/page.html"}):
+                with self.assertRaises(ValueError):
+                    importlib.reload(main)
+            importlib.reload(main)
 
     def test_http_session_validation_and_no_provider(self):
         status, _, created = self.request("POST", "/api/sessions", {
