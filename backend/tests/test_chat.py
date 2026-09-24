@@ -189,7 +189,10 @@ class HTTPContractTests(unittest.TestCase):
         self.assertIn(b"const API = '/api'", page)
         self.assertIn(b"renderAssistantMessage(bubble, message.text)", page)
         self.assertIn(b"renderMathInElement(bubble", page)
-        self.assertIn(b"strong.textContent = match[1]", page)
+        self.assertIn(b"function appendInlineMarkdown(parent, text)", page)
+        self.assertIn(b"function renderAssistantMessage(bubble, text)", page)
+        self.assertIn(b"document.createElement(ordered ? 'ol' : 'ul')", page)
+        self.assertIn(b"element.textContent = marker.slice", page)
         self.assertIn("AI анализирует вопрос".encode("utf-8"), page)
         self.assertIn(b"aria-busy=\"false\"", page)
         for placeholder in ("Режим просмотра прототипа", "Серия: 5 дней", "Ученик: Максим",
